@@ -38,7 +38,7 @@ async function createGoogleJWT(serviceAccount: any): Promise<string> {
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
-    sub: "goldhand@goldhand.space",
+    sub: serviceAccount.client_email,
   };
 
   const encode = (obj: any) =>
