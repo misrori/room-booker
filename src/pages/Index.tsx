@@ -1,11 +1,11 @@
-import { useRoomStatus } from "@/hooks/useRoomStatus";
-import { MOCK_ROOM } from "@/lib/mockData";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { StatusBar, StatusDot } from "@/components/StatusBar";
 import { CurrentMeeting } from "@/components/CurrentMeeting";
 import { NextMeeting } from "@/components/NextMeeting";
 import { QuickBook } from "@/components/QuickBook";
 import { Timeline } from "@/components/Timeline";
-import { MapPin, Users } from "lucide-react";
+import { MapPin, Users, Loader2, AlertTriangle } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 const statusLabel: Record<string, string> = {
   available: "Szabad",
@@ -14,18 +14,54 @@ const statusLabel: Record<string, string> = {
 };
 
 export default function Index() {
-  const { status, currentMeeting, nextMeeting, minutesUntilNext, minutesRemaining, allMeetings, now } =
-    useRoomStatus();
+  const [searchParams] = useSearchParams();
+  const roomId = searchParams.get("room") || "diamond";
+
+  const {
+    status,
+    currentMeeting,
+    nextMeeting,
+    minutesUntilNext,
+    minutesRemaining,
+    allMeetings,
+    now,
+    room,
+    loading,
+    error,
+  } = useCalendarEvents(roomId);
 
   const handleQuickBook = (minutes: number) => {
     console.log(`Quick booking for ${minutes} minutes`);
-    // TODO: Google Calendar API integration
+    // TODO: Google Calendar API create event
   };
 
   const timeStr = now.toLocaleTimeString("hu-HU", {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-lg">Naptár betöltése...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 text-destructive max-w-md text-center">
+          <AlertTriangle className="h-8 w-8" />
+          <p className="text-lg font-semibold">Hiba történt</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background select-none">
@@ -35,16 +71,16 @@ export default function Index() {
       <header className="px-8 pt-8 pb-4 flex items-start justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-            {MOCK_ROOM.name}
+            {room?.name || roomId}
           </h1>
           <div className="flex items-center gap-4 text-muted-foreground text-sm">
             <div className="flex items-center gap-1.5">
               <MapPin className="h-4 w-4" />
-              <span>{MOCK_ROOM.floor}</span>
+              <span>{room?.floor || ""}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Users className="h-4 w-4" />
-              <span>{MOCK_ROOM.capacity} fő</span>
+              <span>{room?.capacity || "?"} fő</span>
             </div>
           </div>
         </div>

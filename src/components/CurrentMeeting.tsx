@@ -1,4 +1,4 @@
-import { Meeting } from "@/lib/mockData";
+import { Meeting } from "@/hooks/useCalendarEvents";
 import { Clock, User } from "lucide-react";
 
 interface Props {
