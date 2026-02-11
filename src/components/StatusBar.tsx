@@ -1,4 +1,4 @@
-import { RoomStatus } from "@/hooks/useRoomStatus";
+import { RoomStatus } from "@/hooks/useCalendarEvents";
 
 interface StatusBarProps {
   status: RoomStatus;
