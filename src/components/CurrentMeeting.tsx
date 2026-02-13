@@ -1,5 +1,5 @@
 import { Meeting } from "@/hooks/useCalendarEvents";
-import { Clock, User } from "lucide-react";
+import { Clock, User, Users } from "lucide-react";
 
 interface Props {
   meeting: Meeting;
@@ -7,7 +7,7 @@ interface Props {
 }
 
 function formatTime(date: Date) {
-  return date.toLocaleTimeString("hu-HU", {
+  return date.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -15,10 +15,10 @@ function formatTime(date: Date) {
 
 export function CurrentMeeting({ meeting, minutesRemaining }: Props) {
   return (
-    <div className="fade-in space-y-6">
+    <div className="fade-in space-y-5">
       <div className="space-y-1">
         <p className="text-sm font-medium uppercase tracking-widest text-room-occupied/80">
-          Most zajlik
+          In Progress
         </p>
         <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
           {meeting.title}
@@ -36,12 +36,18 @@ export function CurrentMeeting({ meeting, minutesRemaining }: Props) {
             {formatTime(meeting.startTime)} – {formatTime(meeting.endTime)}
           </span>
         </div>
+        {meeting.attendees !== undefined && (
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            <span className="text-lg">{meeting.attendees}</span>
+          </div>
+        )}
       </div>
 
       {minutesRemaining !== null && (
         <div className="inline-flex items-center gap-2 rounded-xl bg-room-occupied/10 px-5 py-3 border border-room-occupied/20">
           <span className="text-room-occupied text-lg font-semibold">
-            {minutesRemaining} perc van hátra
+            {minutesRemaining} min remaining
           </span>
         </div>
       )}

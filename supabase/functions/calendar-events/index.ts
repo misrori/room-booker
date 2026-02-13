@@ -6,29 +6,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Room definitions
 const ROOMS: Record<string, { name: string; floor: string; capacity: number; calendarId: string }> = {
   diamond: {
     name: "Diamond",
-    floor: "1. emelet",
+    floor: "1st Floor",
     capacity: 10,
     calendarId: "c_1883su02ru9r2h0vgjk2stdh8ol0i@resource.calendar.google.com",
   },
   gold: {
     name: "Gold",
-    floor: "1. emelet",
+    floor: "1st Floor",
     capacity: 10,
     calendarId: "c_188d9rsbnccpug21jgafr2prpofsa@resource.calendar.google.com",
   },
   silver: {
     name: "Silver",
-    floor: "1. emelet",
+    floor: "1st Floor",
     capacity: 10,
     calendarId: "c_188e5b5lgcsfaj62khtf4ruo5q06q@resource.calendar.google.com",
   },
 };
 
-// Create JWT for Google API auth
 async function createGoogleJWT(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
@@ -51,7 +49,6 @@ async function createGoogleJWT(serviceAccount: any): Promise<string> {
   const payloadB64 = encode(payload);
   const signingInput = `${headerB64}.${payloadB64}`;
 
-  // Import the private key
   const pemContent = serviceAccount.private_key
     .replace("-----BEGIN PRIVATE KEY-----", "")
     .replace("-----END PRIVATE KEY-----", "")
@@ -103,6 +100,8 @@ interface CalendarEvent {
   organizer: string;
   startTime: string;
   endTime: string;
+  attendees?: number;
+  checkedIn?: boolean;
 }
 
 async function fetchCalendarEvents(
@@ -137,11 +136,135 @@ async function fetchCalendarEvents(
     .filter((e: any) => e.status !== "cancelled" && e.start?.dateTime)
     .map((e: any) => ({
       id: e.id,
-      title: e.summary || "Névtelen esemény",
-      organizer: e.organizer?.displayName || e.organizer?.email || "Ismeretlen",
+      title: e.summary || "Untitled Event",
+      organizer: e.organizer?.displayName || e.organizer?.email || "Unknown",
       startTime: e.start.dateTime,
       endTime: e.end.dateTime,
+      attendees: e.attendees?.length || undefined,
+      checkedIn: e.extendedProperties?.private?.checkedIn === "true",
     }));
+}
+
+async function createEvent(
+  accessToken: string,
+  calendarId: string,
+  summary: string,
+  startTime: string,
+  endTime: string,
+  organizer: string
+) {
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        summary,
+        description: `Booked by: ${organizer}`,
+        start: { dateTime: startTime },
+        end: { dateTime: endTime },
+        extendedProperties: {
+          private: { bookedBy: organizer, checkedIn: "false" },
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Create event failed: ${res.status} ${err}`);
+  }
+  return await res.json();
+}
+
+async function deleteEvent(accessToken: string, calendarId: string, eventId: string) {
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (!res.ok && res.status !== 404) {
+    const err = await res.text();
+    throw new Error(`Delete event failed: ${res.status} ${err}`);
+  }
+}
+
+async function checkInEvent(accessToken: string, calendarId: string, eventId: string) {
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        extendedProperties: {
+          private: { checkedIn: "true" },
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Check-in failed: ${res.status} ${err}`);
+  }
+  return await res.json();
+}
+
+async function generateTestData(accessToken: string) {
+  const now = new Date();
+  const roomIds = Object.keys(ROOMS);
+  let created = 0;
+
+  for (const roomId of roomIds) {
+    const room = ROOMS[roomId];
+    // Generate 4-6 events per room with random gaps
+    const numEvents = 4 + Math.floor(Math.random() * 3);
+    let currentHour = 8 + Math.floor(Math.random() * 2); // Start between 8-9
+    let currentMinute = Math.random() > 0.5 ? 0 : 30;
+
+    for (let i = 0; i < numEvents && currentHour < 18; i++) {
+      const durationMinutes = [30, 45, 60, 90][Math.floor(Math.random() * 4)];
+      const start = new Date(now);
+      start.setHours(currentHour, currentMinute, 0, 0);
+      const end = new Date(start.getTime() + durationMinutes * 60000);
+
+      if (end.getHours() >= 18) break;
+
+      const names = ["Team Standup", "Design Review", "Sprint Planning", "1:1 Meeting", "Client Call", "Workshop", "Brainstorm", "All Hands", "Tech Talk", "Retrospective"];
+      const organizers = ["Alice Smith", "Bob Johnson", "Carol Williams", "David Brown", "Eve Davis"];
+
+      try {
+        await createEvent(
+          accessToken,
+          room.calendarId,
+          names[Math.floor(Math.random() * names.length)],
+          start.toISOString(),
+          end.toISOString(),
+          organizers[Math.floor(Math.random() * organizers.length)]
+        );
+        created++;
+      } catch (e) {
+        console.error(`Failed to create test event for ${roomId}:`, e);
+      }
+
+      // Add gap of 15-60 min
+      const gapMinutes = 15 + Math.floor(Math.random() * 46);
+      const nextStart = new Date(end.getTime() + gapMinutes * 60000);
+      currentHour = nextStart.getHours();
+      currentMinute = nextStart.getMinutes();
+    }
+  }
+
+  return created;
 }
 
 serve(async (req) => {
@@ -150,10 +273,83 @@ serve(async (req) => {
   }
 
   try {
+    // POST requests: actions (create, delete, check-in, generate test data)
+    if (req.method === "POST") {
+      const body = await req.json();
+      const { action } = body;
+
+      const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+      if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON secret not configured");
+      const serviceAccount = JSON.parse(saJson);
+      const accessToken = await getAccessToken(serviceAccount);
+
+      if (action === "generate-test-data") {
+        const created = await generateTestData(accessToken);
+        return new Response(
+          JSON.stringify({ success: true, created }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const room = ROOMS[body.room];
+      if (!room) {
+        return new Response(JSON.stringify({ error: "Room not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (action === "create-adhoc") {
+        const { minutes, bookedBy } = body;
+        if (!minutes || minutes < 1 || minutes > 120) {
+          return new Response(JSON.stringify({ error: "Invalid duration" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const start = new Date();
+        const end = new Date(start.getTime() + minutes * 60000);
+        const event = await createEvent(
+          accessToken,
+          room.calendarId,
+          "Ad-hoc Meeting",
+          start.toISOString(),
+          end.toISOString(),
+          bookedBy || "Anonymous"
+        );
+        return new Response(
+          JSON.stringify({ success: true, eventId: event.id }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (action === "check-in") {
+        const { eventId } = body;
+        await checkInEvent(accessToken, room.calendarId, eventId);
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (action === "delete-event") {
+        const { eventId } = body;
+        await deleteEvent(accessToken, room.calendarId, eventId);
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(JSON.stringify({ error: "Unknown action" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // GET requests: fetch events
     const url = new URL(req.url);
     const roomId = url.searchParams.get("room");
 
-    // If no room specified, return all rooms metadata
     if (!roomId) {
       const rooms = Object.entries(ROOMS).map(([id, r]) => ({
         id,
@@ -175,10 +371,7 @@ serve(async (req) => {
     }
 
     const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
-    if (!saJson) {
-      throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON secret not configured");
-    }
-
+    if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON secret not configured");
     const serviceAccount = JSON.parse(saJson);
     const accessToken = await getAccessToken(serviceAccount);
     const events = await fetchCalendarEvents(accessToken, room.calendarId);
