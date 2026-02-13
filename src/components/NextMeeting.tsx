@@ -7,7 +7,7 @@ interface Props {
 }
 
 function formatTime(date: Date) {
-  return date.toLocaleTimeString("hu-HU", {
+  return date.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -15,15 +15,15 @@ function formatTime(date: Date) {
 
 export function NextMeeting({ meeting, minutesUntilNext }: Props) {
   return (
-    <div className="rounded-2xl bg-card border border-border p-6 slide-up">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="rounded-2xl bg-card border border-border p-5 slide-up">
+      <div className="flex items-center gap-2 mb-2">
         <ArrowRight className="h-4 w-4 text-muted-foreground" />
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Következő
+          Up Next
         </p>
       </div>
 
-      <h3 className="text-2xl font-semibold text-foreground mb-2">
+      <h3 className="text-xl font-semibold text-foreground mb-2">
         {meeting.title}
       </h3>
 
@@ -36,7 +36,7 @@ export function NextMeeting({ meeting, minutesUntilNext }: Props) {
         </div>
         {minutesUntilNext !== null && (
           <span className="text-room-upcoming font-medium">
-            {minutesUntilNext} perc múlva
+            in {minutesUntilNext} min
           </span>
         )}
       </div>

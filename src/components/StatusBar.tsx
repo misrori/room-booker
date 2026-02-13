@@ -4,12 +4,6 @@ interface StatusBarProps {
   status: RoomStatus;
 }
 
-const labels: Record<RoomStatus, string> = {
-  available: "Szabad",
-  occupied: "Foglalt",
-  upcoming: "Hamarosan foglalt",
-};
-
 export function StatusBar({ status }: StatusBarProps) {
   const colorClass =
     status === "available"

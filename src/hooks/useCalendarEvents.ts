@@ -14,6 +14,7 @@ export interface Meeting {
   startTime: Date;
   endTime: Date;
   checkedIn?: boolean;
+  attendees?: number;
 }
 
 export type RoomStatus = "available" | "occupied" | "upcoming";
@@ -29,6 +30,7 @@ export interface RoomState {
   room: Room | null;
   loading: boolean;
   error: string | null;
+  refetch: () => void;
 }
 
 const POLL_INTERVAL = 30_000; // 30s
@@ -68,6 +70,8 @@ export function useCalendarEvents(roomId: string): RoomState {
           ...e,
           startTime: new Date(e.startTime),
           endTime: new Date(e.endTime),
+          attendees: e.attendees,
+          checkedIn: e.checkedIn,
         }))
       );
       setError(null);
@@ -128,5 +132,6 @@ export function useCalendarEvents(roomId: string): RoomState {
     room,
     loading,
     error,
+    refetch: fetchEvents,
   };
 }
