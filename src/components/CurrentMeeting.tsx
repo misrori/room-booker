@@ -1,5 +1,5 @@
 import { Meeting } from "@/hooks/useCalendarEvents";
-import { Clock, User, Users } from "lucide-react";
+import { Clock } from "lucide-react";
 
 interface Props {
   meeting: Meeting;
@@ -25,23 +25,13 @@ export function CurrentMeeting({ meeting, minutesRemaining }: Props) {
         </h2>
       </div>
 
-      <div className="flex items-center gap-6 text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <User className="h-5 w-5" />
-          <span className="text-lg">{meeting.organizer}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          <span className="text-lg font-mono">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Clock className="h-6 w-6" />
+          <span className="text-3xl font-mono font-bold text-foreground">
             {formatTime(meeting.startTime)} – {formatTime(meeting.endTime)}
           </span>
         </div>
-        {meeting.attendees !== undefined && (
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            <span className="text-lg">{meeting.attendees}</span>
-          </div>
-        )}
       </div>
 
       {minutesRemaining !== null && (

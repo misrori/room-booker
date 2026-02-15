@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Room {
   id: string;
@@ -48,11 +49,15 @@ export function useCalendarEvents(roomId: string): RoomState {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || anonKey;
+
       const res = await fetch(
         `${supabaseUrl}/functions/v1/calendar-events?room=${roomId}`,
         {
           headers: {
             apikey: anonKey,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         }
@@ -101,9 +106,15 @@ export function useCalendarEvents(roomId: string): RoomState {
     (a, b) => a.startTime.getTime() - b.startTime.getTime()
   );
 
-  const current = sorted.find((m) => now >= m.startTime && now < m.endTime) || null;
+  let current = sorted.find((m) => now >= m.startTime && now < m.endTime) || null;
   const upcoming = sorted.filter((m) => m.startTime > now);
-  const next = upcoming[0] || null;
+  let next = upcoming[0] || null;
+
+  // Promotion logic: if next meeting is already checked in (early), treat it as current
+  if (!current && next?.checkedIn) {
+    current = next;
+    next = upcoming[1] || null;
+  }
 
   let status: RoomStatus = "available";
   let minutesRemaining: number | null = null;

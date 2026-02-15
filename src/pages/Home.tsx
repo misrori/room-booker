@@ -1,6 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { MapPin, Users, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { MapPin, Users, ArrowRight, Sparkles, Loader2, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 
@@ -13,6 +14,12 @@ const ROOMS = [
 export default function Home() {
   const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
 
   const handleGenerateTestData = async () => {
     setGenerating(true);
@@ -20,6 +27,8 @@ export default function Home() {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || anonKey;
 
       const res = await fetch(
         `${supabaseUrl}/functions/v1/calendar-events`,
@@ -27,6 +36,7 @@ export default function Home() {
           method: "POST",
           headers: {
             apikey: anonKey,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ action: "generate-test-data" }),
@@ -44,7 +54,16 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-8 relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleLogout}
+        className="absolute top-8 right-8 gap-2 text-muted-foreground hover:text-foreground"
+      >
+        <LogOut className="h-4 w-4" />
+        Sign Out
+      </Button>
       <div className="mb-10 flex flex-col items-center gap-4">
         <img src={logo} alt="Logo" className="h-16 w-auto" />
         <h1 className="text-4xl font-bold tracking-tight text-foreground">

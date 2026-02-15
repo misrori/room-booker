@@ -1,12 +1,14 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { supabase } from "@/integrations/supabase/client";
 import { StatusBar, StatusDot } from "@/components/StatusBar";
 import { CurrentMeeting } from "@/components/CurrentMeeting";
-import { NextMeeting } from "@/components/NextMeeting";
 import { QuickBook } from "@/components/QuickBook";
 import { Timeline } from "@/components/Timeline";
 import { CheckInButton } from "@/components/CheckInButton";
-import { MapPin, Users, Loader2, AlertTriangle, ArrowLeft } from "lucide-react";
+import { MapPin, Users, Loader2, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 
 const statusLabel: Record<string, string> = {
@@ -18,6 +20,7 @@ const statusLabel: Record<string, string> = {
 export default function RoomView() {
   const { roomId } = useParams<{ roomId: string }>();
   const id = roomId || "diamond";
+  const navigate = useNavigate();
 
   const {
     status,
@@ -33,15 +36,18 @@ export default function RoomView() {
     refetch,
   } = useCalendarEvents(id);
 
-  const handleQuickBook = async (minutes: number, bookedBy: string) => {
+  const handleQuickBook = useCallback(async (minutes: number, bookedBy: string) => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || anonKey;
 
       const res = await fetch(`${supabaseUrl}/functions/v1/calendar-events`, {
         method: "POST",
         headers: {
           apikey: anonKey,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -59,17 +65,20 @@ export default function RoomView() {
     } catch (err: any) {
       console.error("Booking failed:", err);
     }
-  };
+  }, [id, refetch]);
 
-  const handleCheckIn = async (eventId: string) => {
+  const handleCheckIn = useCallback(async (eventId: string) => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || anonKey;
 
       const res = await fetch(`${supabaseUrl}/functions/v1/calendar-events`, {
         method: "POST",
         headers: {
           apikey: anonKey,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -85,17 +94,20 @@ export default function RoomView() {
     } catch (err: any) {
       console.error("Check-in failed:", err);
     }
-  };
+  }, [id, refetch]);
 
-  const handleAutoDelete = async (eventId: string) => {
+  const handleAutoDelete = useCallback(async (eventId: string) => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || anonKey;
 
       const res = await fetch(`${supabaseUrl}/functions/v1/calendar-events`, {
         method: "POST",
         headers: {
           apikey: anonKey,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -113,7 +125,7 @@ export default function RoomView() {
     } catch (err: any) {
       console.error("Auto-delete failed:", err);
     }
-  };
+  }, [id, refetch]);
 
   const timeStr = now.toLocaleTimeString("en-GB", {
     hour: "2-digit",
@@ -124,8 +136,61 @@ export default function RoomView() {
   const maxBookableMinutes = minutesUntilNext !== null && status !== "occupied"
     ? minutesUntilNext
     : status === "occupied"
-    ? 0
-    : 999;
+      ? 0
+      : 999;
+
+  // Check-in logic: show check-in for current meeting if within 15 min window
+  const checkInDeadlineMs = 15 * 60 * 1000;
+  const elapsedMs = currentMeeting ? now.getTime() - currentMeeting.startTime.getTime() : 0;
+  const remainingMs = checkInDeadlineMs - elapsedMs;
+  const remainingMinutes = Math.max(0, Math.ceil(remainingMs / 60000));
+  const countdownStr = `${remainingMinutes} min`;
+
+  const showCheckIn = currentMeeting && !currentMeeting.checkedIn && minutesRemaining !== null;
+  const checkInDeadlinePassed = showCheckIn && elapsedMs > checkInDeadlineMs;
+
+  // Show check-in for upcoming meeting (within 5 min before start)
+  const showUpcomingCheckIn = nextMeeting && !nextMeeting.checkedIn && minutesUntilNext !== null && minutesUntilNext <= 5 && !currentMeeting;
+
+  // Automatically delete if deadline passed and not checked in
+  useEffect(() => {
+    if (checkInDeadlinePassed && currentMeeting) {
+      console.log("Auto-deleting meeting due to no check-in:", currentMeeting.id);
+      handleAutoDelete(currentMeeting.id);
+    }
+  }, [checkInDeadlinePassed, currentMeeting, handleAutoDelete]);
+
+  const [allQuotes, setAllQuotes] = useState<{ author: string; quote: string }[]>([]);
+  const [currentQuote, setCurrentQuote] = useState<{ author: string; quote: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/motivation.txt")
+      .then((res) => res.text())
+      .then((text) => {
+        const lines = text.split("\n").slice(1); // Skip header
+        const validQuotes = lines
+          .map((line) => {
+            const match = line.match(/"([^"]*)","([^"]*)"/);
+            if (!match) return null;
+            return { author: match[1], quote: match[2] };
+          })
+          .filter((q): q is { author: string; quote: string } =>
+            !!q && !!q.author && q.quote.length < 50
+          );
+        setAllQuotes(validQuotes);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (allQuotes.length > 0) {
+      const hour = now.getHours();
+      const date = now.getDate();
+      // Use hour and date to seed the index so it's consistent for that hour but changes daily
+      const index = (hour + date) % allQuotes.length;
+      setCurrentQuote(allQuotes[index]);
+    }
+  }, [allQuotes, now.getHours()]); // Trigger when quotes are loaded or hour changes
 
   if (loading) {
     return (
@@ -150,52 +215,28 @@ export default function RoomView() {
     );
   }
 
-  // Check-in logic: show check-in for current meeting if within 5 min window
-  const showCheckIn = currentMeeting && !currentMeeting.checkedIn && minutesRemaining !== null;
-  const checkInDeadlinePassed = currentMeeting && !currentMeeting.checkedIn && minutesRemaining !== null &&
-    (() => {
-      const elapsedMs = now.getTime() - currentMeeting.startTime.getTime();
-      return elapsedMs > 5 * 60 * 1000;
-    })();
-
-  // Show check-in for upcoming meeting (within 5 min before start)
-  const showUpcomingCheckIn = nextMeeting && !nextMeeting.checkedIn && minutesUntilNext !== null && minutesUntilNext <= 5 && !currentMeeting;
-
   return (
-    <div className="h-screen flex flex-col bg-background select-none overflow-hidden">
+    <div className="h-screen flex flex-col bg-background select-none overflow-hidden pb-32 relative">
       <StatusBar status={status} />
 
       {/* Header */}
-      <header className="px-8 pt-6 pb-3 flex items-start justify-between shrink-0">
+      <header className="px-8 pt-8 pb-4 flex items-start justify-between shrink-0">
         <div className="flex items-center gap-6">
-          <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-6 w-6" />
-          </Link>
-          <img src={logo} alt="Logo" className="h-10 w-auto" />
-          <div className="space-y-0.5">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">
+          <img src={logo} alt="Logo" className="h-12 w-auto" />
+          <div className="space-y-1">
+            <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-foreground">
               {room?.name || id}
             </h1>
-            <div className="flex items-center gap-4 text-muted-foreground text-sm">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4" />
-                <span>{room?.floor || ""}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Users className="h-4 w-4" />
-                <span>{room?.capacity || "?"} people</span>
-              </div>
-            </div>
           </div>
         </div>
 
-        <div className="text-right space-y-1">
-          <p className="text-5xl md:text-6xl font-extrabold font-mono tracking-tight text-foreground">
+        <div className="text-right space-y-2">
+          <p className="text-6xl md:text-7xl font-black font-mono tracking-tighter text-foreground">
             {timeStr}
           </p>
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-3">
             <StatusDot status={status} />
-            <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-lg font-bold uppercase tracking-widest text-muted-foreground">
               {statusLabel[status]}
             </span>
           </div>
@@ -215,14 +256,8 @@ export default function RoomView() {
               {showCheckIn && !checkInDeadlinePassed && (
                 <CheckInButton
                   onCheckIn={() => handleCheckIn(currentMeeting.id)}
-                  label="Check In"
-                />
-              )}
-              {checkInDeadlinePassed && (
-                <CheckInButton
-                  onCheckIn={() => handleAutoDelete(currentMeeting.id)}
-                  label="No check-in — releasing room..."
-                  autoTrigger
+                  label={remainingMinutes <= 1 ? `Check In Now (${countdownStr} left)` : `Check In (${countdownStr} remaining)`}
+                  className={remainingMinutes <= 1 ? "animate-pulse bg-destructive hover:bg-destructive/90 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : ""}
                 />
               )}
             </>
@@ -267,13 +302,6 @@ export default function RoomView() {
               maxMinutes={maxBookableMinutes}
             />
           ) : null}
-
-          {nextMeeting && currentMeeting && (
-            <NextMeeting
-              meeting={nextMeeting}
-              minutesUntilNext={minutesUntilNext}
-            />
-          )}
         </div>
 
         {/* Right side: Timeline (prominent) */}
@@ -281,6 +309,18 @@ export default function RoomView() {
           <Timeline meetings={allMeetings} now={now} />
         </div>
       </main>
+
+      {/* Footer Quote */}
+      {currentQuote && (
+        <div className="absolute bottom-6 left-0 right-0 text-center px-8 border-t border-border pt-6 mx-8">
+          <p className="text-2xl font-medium italic text-muted-foreground">
+            "{currentQuote.quote}"
+          </p>
+          <p className="text-lg font-bold text-primary mt-1">
+            — {currentQuote.author}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

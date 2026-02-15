@@ -14,54 +14,46 @@ function formatTime(date: Date) {
 }
 
 export function Timeline({ meetings, now }: Props) {
-  if (meetings.length === 0) {
+  const upcomingMeetings = meetings.filter((m) => now < m.endTime);
+
+  if (upcomingMeetings.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-muted-foreground text-lg">No meetings scheduled today</p>
+        <p className="text-muted-foreground text-2xl font-bold">No more meetings today</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full">
-      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-4 shrink-0">
+      <p className="text-lg font-black uppercase tracking-[0.2em] text-muted-foreground mb-6 shrink-0">
         Today's Schedule
       </p>
 
-      <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-        {meetings.map((m) => {
-          const isPast = now >= m.endTime;
+      <div className="space-y-4 overflow-y-auto flex-1 pr-4 custom-scrollbar">
+        {upcomingMeetings.map((m) => {
           const isCurrent = now >= m.startTime && now < m.endTime;
 
           return (
             <div
               key={m.id}
-              className={`flex items-center gap-4 rounded-2xl px-5 py-4 transition-colors
-                ${isCurrent ? "bg-room-occupied/10 border border-room-occupied/20" : "bg-card border border-border"}
-                ${isPast ? "opacity-40" : ""}
+              className={`flex items-center gap-8 rounded-3xl px-8 py-6 transition-all duration-300
+                ${isCurrent ? "bg-room-occupied/15 border-2 border-room-occupied/30 shadow-lg shadow-room-occupied/10" : "bg-card/50 border border-border/50"}
               `}
             >
-              <span className="font-mono text-sm text-muted-foreground w-32 shrink-0">
+              <div className={`font-mono text-2xl font-black w-48 shrink-0 ${isCurrent ? "text-room-occupied" : "text-muted-foreground text-opacity-70"}`}>
                 {formatTime(m.startTime)} – {formatTime(m.endTime)}
-              </span>
+              </div>
               <div className="flex-1 min-w-0">
                 <span
-                  className={`text-base font-semibold truncate block ${
-                    isCurrent ? "text-foreground" : "text-secondary-foreground"
-                  }`}
+                  className={`text-3xl md:text-4xl font-black truncate block tracking-tight ${isCurrent ? "text-foreground" : "text-secondary-foreground"
+                    }`}
                 >
                   {m.title}
                 </span>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                  <User className="h-3 w-3" />
-                  <span>{m.organizer}</span>
-                  {m.attendees !== undefined && (
-                    <span className="ml-2">· {m.attendees} attendees</span>
-                  )}
-                </div>
               </div>
               {isCurrent && (
-                <span className="text-xs font-semibold text-room-occupied uppercase tracking-wider shrink-0">
+                <span className="text-lg font-black text-room-occupied uppercase tracking-[0.2em] shrink-0 animate-pulse">
                   Now
                 </span>
               )}

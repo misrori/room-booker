@@ -151,7 +151,8 @@ async function createEvent(
   summary: string,
   startTime: string,
   endTime: string,
-  organizer: string
+  organizer: string,
+  checkedIn = false
 ) {
   const res = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
@@ -167,7 +168,7 @@ async function createEvent(
         start: { dateTime: startTime },
         end: { dateTime: endTime },
         extendedProperties: {
-          private: { bookedBy: organizer, checkedIn: "false" },
+          private: { bookedBy: organizer, checkedIn: checkedIn ? "true" : "false" },
         },
       }),
     }
@@ -314,7 +315,8 @@ serve(async (req) => {
           "Ad-hoc Meeting",
           start.toISOString(),
           end.toISOString(),
-          bookedBy || "Anonymous"
+          bookedBy || "Anonymous",
+          true // auto check-in for ad-hoc
         );
         return new Response(
           JSON.stringify({ success: true, eventId: event.id }),
