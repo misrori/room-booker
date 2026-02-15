@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Lock } from "lucide-react";
-import logo from "@/assets/logo.png";
+
 
 export default function Login() {
     const [isRegistering, setIsRegistering] = useState(false);
@@ -98,7 +98,7 @@ export default function Login() {
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
             <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-300">
                 <div className="flex flex-col items-center gap-4">
-                    <img src={logo} alt="Logo" className="h-16 w-auto" />
+                    <img src={`${import.meta.env.BASE_URL}pao_logo.png`} alt="Logo" className="h-24 w-auto" />
                     <h1 className="text-3xl font-bold tracking-tight text-foreground text-center">
                         Room Booker
                     </h1>

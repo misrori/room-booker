@@ -9,7 +9,7 @@ import { Timeline } from "@/components/Timeline";
 import { CheckInButton } from "@/components/CheckInButton";
 import { MapPin, Users, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo.png";
+
 
 const statusLabel: Record<string, string> = {
   available: "Available",
@@ -132,6 +132,12 @@ export default function RoomView() {
     minute: "2-digit",
   });
 
+  const dateStr = now.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
   // Calculate max bookable minutes based on next meeting
   const maxBookableMinutes = minutesUntilNext !== null && status !== "occupied"
     ? minutesUntilNext
@@ -164,10 +170,13 @@ export default function RoomView() {
   const [currentQuote, setCurrentQuote] = useState<{ author: string; quote: string } | null>(null);
 
   useEffect(() => {
-    fetch("/motivation.txt")
-      .then((res) => res.text())
+    fetch(`${import.meta.env.BASE_URL}motivation.txt`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load quotes: ${res.status}`);
+        return res.text();
+      })
       .then((text) => {
-        const lines = text.split("\n").slice(1); // Skip header
+        const lines = text.split("\n").slice(1);
         const validQuotes = lines
           .map((line) => {
             const match = line.match(/"([^"]*)","([^"]*)"/);
@@ -175,22 +184,24 @@ export default function RoomView() {
             return { author: match[1], quote: match[2] };
           })
           .filter((q): q is { author: string; quote: string } =>
-            !!q && !!q.author && q.quote.length < 50
+            !!q && !!q.author && q.quote.trim().length > 0
           );
+        console.log(`Loaded ${validQuotes.length} valid quotes`);
         setAllQuotes(validQuotes);
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error("Error loading motivation quotes:", err);
+      });
   }, []);
 
   useEffect(() => {
     if (allQuotes.length > 0) {
-      const hour = now.getHours();
-      const date = now.getDate();
-      // Use hour and date to seed the index so it's consistent for that hour but changes daily
-      const index = (hour + date) % allQuotes.length;
+      const tenMinInterval = Math.floor(now.getTime() / (10 * 60 * 1000));
+      const roomOffset = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const index = (tenMinInterval + roomOffset) % allQuotes.length;
       setCurrentQuote(allQuotes[index]);
     }
-  }, [allQuotes, now.getHours()]); // Trigger when quotes are loaded or hour changes
+  }, [allQuotes, Math.floor(now.getTime() / (10 * 60 * 1000)), id]);
 
   if (loading) {
     return (
@@ -222,19 +233,22 @@ export default function RoomView() {
       {/* Header */}
       <header className="px-8 pt-8 pb-4 flex items-start justify-between shrink-0">
         <div className="flex items-center gap-6">
-          <img src={logo} alt="Logo" className="h-12 w-auto" />
+          <img src={`${import.meta.env.BASE_URL}pao_logo.png`} alt="Logo" className="h-32 w-auto" />
           <div className="space-y-1">
-            <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-foreground">
+            <h1 className="text-7xl md:text-8xl font-black tracking-tighter text-foreground uppercase">
               {room?.name || id}
             </h1>
           </div>
         </div>
 
-        <div className="text-right space-y-2">
+        <div className="text-right space-y-1">
           <p className="text-6xl md:text-7xl font-black font-mono tracking-tighter text-foreground">
             {timeStr}
           </p>
-          <div className="flex items-center justify-end gap-3">
+          <p className="text-xl font-bold uppercase tracking-widest text-muted-foreground/60">
+            {dateStr}
+          </p>
+          <div className="flex items-center justify-end gap-3 pt-4">
             <StatusDot status={status} />
             <span className="text-lg font-bold uppercase tracking-widest text-muted-foreground">
               {statusLabel[status]}

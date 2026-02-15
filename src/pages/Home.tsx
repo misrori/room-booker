@@ -3,7 +3,7 @@ import { useState } from "react";
 import { MapPin, Users, ArrowRight, Sparkles, Loader2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo.png";
+
 
 const ROOMS = [
   { id: "diamond", name: "Diamond", floor: "1st Floor", capacity: 10 },
@@ -65,7 +65,7 @@ export default function Home() {
         Sign Out
       </Button>
       <div className="mb-10 flex flex-col items-center gap-4">
-        <img src={logo} alt="Logo" className="h-16 w-auto" />
+        <img src={`${import.meta.env.BASE_URL}pao_logo.png`} alt="Logo" className="h-24 w-auto" />
         <h1 className="text-4xl font-bold tracking-tight text-foreground">
           Meeting Rooms
         </h1>
