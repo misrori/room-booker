@@ -47,6 +47,7 @@ export default function Login() {
                         data: {
                             full_name: fullName,
                         },
+                        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
                     },
                 });
 
