@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => ({
         short_name: "RoomBooker",
         description: "Ad-hoc meeting room booking app",
         theme_color: "#000000",
+        background_color: "#000000",
+        display: "standalone",
+        start_url: "/room-booker/",
+        orientation: "landscape",
         icons: [
           {
             src: "pao_logo.png",
@@ -34,10 +38,12 @@ export default defineConfig(({ mode }) => ({
             src: "pao_logo.png",
             sizes: "512x512",
             type: "image/png",
+            purpose: "any maskable",
           },
         ],
       },
     }),
+
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
