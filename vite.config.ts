@@ -22,11 +22,13 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: "Room Booker",
         short_name: "RoomBooker",
+        id: "/room-booker/",
         description: "Ad-hoc meeting room booking app",
         theme_color: "#000000",
         background_color: "#000000",
         display: "standalone",
         start_url: "/room-booker/",
+        scope: "/room-booker/",
         orientation: "landscape",
         icons: [
           {
@@ -42,7 +44,11 @@ export default defineConfig(({ mode }) => ({
           },
         ],
       },
+      devOptions: {
+        enabled: true,
+      },
     }),
+
 
     mode === "development" && componentTagger(),
   ].filter(Boolean),
