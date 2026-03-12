@@ -9,6 +9,8 @@ import { Timeline } from "@/components/Timeline";
 import { CheckInButton } from "@/components/CheckInButton";
 import { MapPin, Users, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useWakeLock } from "@/hooks/useWakeLock";
+import { DimmingOverlay } from "@/components/DimmingOverlay";
 
 
 const statusLabel: Record<string, string> = {
@@ -19,8 +21,9 @@ const statusLabel: Record<string, string> = {
 
 export default function RoomView() {
   const { roomId } = useParams<{ roomId: string }>();
-  const id = roomId || "diamond";
+   const id = roomId || "diamond";
   const navigate = useNavigate();
+  useWakeLock();
 
   const {
     status,
@@ -35,6 +38,13 @@ export default function RoomView() {
     error,
     refetch,
   } = useCalendarEvents(id);
+
+  const [isEnding, setIsEnding] = useState(false);
+
+  // Reset isEnding when currentMeeting changes or data refetched
+  useEffect(() => {
+    setIsEnding(false);
+  }, [currentMeeting?.id]);
 
   const handleQuickBook = useCallback(async (minutes: number, bookedBy: string) => {
     try {
@@ -98,6 +108,7 @@ export default function RoomView() {
 
   const handleCheckOut = useCallback(async (eventId: string) => {
     try {
+      setIsEnding(true); // Optimistic UI
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const { data: { session } } = await supabase.auth.getSession();
@@ -118,9 +129,13 @@ export default function RoomView() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Check-out failed");
+      if (!res.ok) {
+        setIsEnding(false); // Rollback optimistic update on error
+        throw new Error(data.error || "Check-out failed");
+      }
       refetch();
     } catch (err: any) {
+      setIsEnding(false); // Rollback optimistic update on error
       console.error("Check-out failed:", err);
     }
   }, [id, refetch]);
@@ -258,6 +273,7 @@ export default function RoomView() {
 
   return (
     <div className="h-screen flex flex-col bg-background select-none overflow-hidden pb-32 relative">
+      <DimmingOverlay />
       <StatusBar status={status} />
 
       {/* Header */}
@@ -291,7 +307,7 @@ export default function RoomView() {
       <main className="flex-1 px-8 pb-6 flex gap-8 min-h-0">
         {/* Left side: Status + Quick Book */}
         <div className="w-[420px] shrink-0 flex flex-col justify-center space-y-6">
-          {currentMeeting ? (
+          {currentMeeting && !isEnding ? (
             <>
               <CurrentMeeting
                 meeting={currentMeeting}

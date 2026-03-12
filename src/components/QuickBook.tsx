@@ -26,6 +26,12 @@ export function QuickBook({ onBook, disabled, maxMinutes = 999 }: Props) {
     }, 2000);
   };
 
+  const durations = [...DURATIONS];
+  if (maxMinutes < 15 && maxMinutes > 0) {
+    // If we have less than 15 mins available, make the first button dynamic
+    (durations as number[])[0] = maxMinutes;
+  }
+
   return (
     <div className="rounded-2xl bg-card border border-border p-6 slide-up">
       <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-4">
@@ -33,7 +39,7 @@ export function QuickBook({ onBook, disabled, maxMinutes = 999 }: Props) {
       </p>
 
       <div className="flex gap-3 mb-4">
-        {DURATIONS.map((d) => {
+        {durations.map((d) => {
           const isDisabled = disabled || d > maxMinutes;
           const isSelected = selected === d;
 
