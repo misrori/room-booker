@@ -220,6 +220,30 @@ async function checkInEvent(accessToken: string, calendarId: string, eventId: st
   return await res.json();
 }
 
+async function checkOutEvent(accessToken: string, calendarId: string, eventId: string) {
+  const now = new Date();
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        end: { dateTime: now.toISOString() },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Check-out failed: ${res.status} ${err}`);
+  }
+  return await res.json();
+}
+
+
 async function generateTestData(accessToken: string) {
   const now = new Date();
   const roomIds = Object.keys(ROOMS);
@@ -332,6 +356,16 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      if (action === "check-out") {
+        const { eventId } = body;
+        await checkOutEvent(accessToken, room.calendarId, eventId);
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
 
       if (action === "delete-event") {
         const { eventId } = body;

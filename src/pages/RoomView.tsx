@@ -96,6 +96,36 @@ export default function RoomView() {
     }
   }, [id, refetch]);
 
+  const handleCheckOut = useCallback(async (eventId: string) => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || anonKey;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/calendar-events`, {
+        method: "POST",
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "check-out",
+          room: id,
+          eventId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Check-out failed");
+      refetch();
+    } catch (err: any) {
+      console.error("Check-out failed:", err);
+    }
+  }, [id, refetch]);
+
+
   const handleAutoDelete = useCallback(async (eventId: string) => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -274,6 +304,16 @@ export default function RoomView() {
                   className={remainingMinutes <= 1 ? "animate-pulse bg-destructive hover:bg-destructive/90 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : ""}
                 />
               )}
+              {currentMeeting.checkedIn && (
+                <Button
+                  onClick={() => handleCheckOut(currentMeeting.id)}
+                  variant="outline"
+                  className="w-full h-16 text-xl font-bold rounded-2xl border-2 border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive transition-all duration-300"
+                >
+                  End Meeting Early
+                </Button>
+              )}
+
             </>
           ) : showUpcomingCheckIn ? (
             <>
