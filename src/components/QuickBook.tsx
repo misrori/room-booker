@@ -26,10 +26,14 @@ export function QuickBook({ onBook, disabled, maxMinutes = 999 }: Props) {
     }, 2000);
   };
 
-  const durations = [...DURATIONS];
-  if (maxMinutes < 15 && maxMinutes > 0) {
-    // If we have less than 15 mins available, make the first button dynamic
-    (durations as number[])[0] = maxMinutes;
+  let durations = [15, 30, 60];
+  
+  if (maxMinutes >= 1 && maxMinutes <= 15) {
+    durations = [maxMinutes, 30, 60];
+  } else if (maxMinutes >= 16 && maxMinutes <= 30) {
+    durations = [15, maxMinutes, 60];
+  } else if (maxMinutes >= 31 && maxMinutes < 60) {
+    durations = [15, 30, maxMinutes];
   }
 
   return (
