@@ -37,6 +37,7 @@ export default function RoomView() {
     loading,
     error,
     refetch,
+    updateEventOptimistically,
   } = useCalendarEvents(id);
 
   const [isEnding, setIsEnding] = useState(false);
@@ -108,7 +109,9 @@ export default function RoomView() {
 
   const handleCheckOut = useCallback(async (eventId: string) => {
     try {
-      setIsEnding(true); // Optimistic UI
+      setIsEnding(true); // Still keep this for local component state if needed, though hook handles it now
+      updateEventOptimistically(eventId, { endTime: now }); // Instant UI update using hook's 'now'
+      
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const { data: { session } } = await supabase.auth.getSession();
@@ -130,15 +133,17 @@ export default function RoomView() {
 
       const data = await res.json();
       if (!res.ok) {
-        setIsEnding(false); // Rollback optimistic update on error
+        setIsEnding(false); 
+        refetch(); // On error, refetch to restore correct state
         throw new Error(data.error || "Check-out failed");
       }
       refetch();
     } catch (err: any) {
-      setIsEnding(false); // Rollback optimistic update on error
+      setIsEnding(false); 
+      refetch(); // On error, refetch to restore correct state
       console.error("Check-out failed:", err);
     }
-  }, [id, refetch]);
+  }, [id, refetch, updateEventOptimistically]);
 
 
   const handleAutoDelete = useCallback(async (eventId: string) => {

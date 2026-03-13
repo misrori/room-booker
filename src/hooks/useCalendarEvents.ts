@@ -32,10 +32,11 @@ export interface RoomState {
   loading: boolean;
   error: string | null;
   refetch: () => void;
+  updateEventOptimistically: (eventId: string, updates: Partial<Meeting>) => void;
 }
 
 const POLL_INTERVAL = 30_000; // 30s
-const CLOCK_INTERVAL = 15_000; // 15s
+const CLOCK_INTERVAL = 1000; // 1s
 
 export function useCalendarEvents(roomId: string): RoomState {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -43,6 +44,7 @@ export function useCalendarEvents(roomId: string): RoomState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Record<string, Partial<Meeting>>>({});
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -80,6 +82,8 @@ export function useCalendarEvents(roomId: string): RoomState {
         }))
       );
       setError(null);
+      // Clear optimistic updates on successful fetch
+      setOptimisticUpdates({});
     } catch (err: any) {
       console.error("Failed to fetch calendar events:", err);
       setError(err.message);
@@ -101,8 +105,20 @@ export function useCalendarEvents(roomId: string): RoomState {
     return () => clearInterval(interval);
   }, []);
 
+  const updateEventOptimistically = useCallback((eventId: string, updates: Partial<Meeting>) => {
+    setOptimisticUpdates(prev => ({ ...prev, [eventId]: { ...prev[eventId], ...updates } }));
+  }, []);
+
+  // Apply optimistic updates to meetings
+  const actualMeetings = meetings.map(m => {
+    if (optimisticUpdates[m.id]) {
+      return { ...m, ...optimisticUpdates[m.id] };
+    }
+    return m;
+  });
+
   // Compute status
-  const sorted = [...meetings].sort(
+  const sorted = [...actualMeetings].sort(
     (a, b) => a.startTime.getTime() - b.startTime.getTime()
   );
 
@@ -144,5 +160,6 @@ export function useCalendarEvents(roomId: string): RoomState {
     loading,
     error,
     refetch: fetchEvents,
+    updateEventOptimistically,
   };
 }
